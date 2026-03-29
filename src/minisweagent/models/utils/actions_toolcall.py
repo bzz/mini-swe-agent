@@ -27,6 +27,15 @@ BASH_TOOL = {
 }
 
 
+def _serialize_tool_call(tool_call) -> dict:
+    function = getattr(tool_call, "function", None)
+    return {
+        "id": getattr(tool_call, "id", None),
+        "name": getattr(function, "name", None),
+        "arguments": getattr(function, "arguments", None),
+    }
+
+
 def parse_toolcall_actions(tool_calls: list, *, format_error_template: str) -> list[dict]:
     """Parse tool calls from the response. Raises FormatError if unknown tool or invalid args."""
     if not tool_calls:
@@ -37,7 +46,10 @@ def parse_toolcall_actions(tool_calls: list, *, format_error_template: str) -> l
                     error="No tool calls found in the response. Every response MUST include at least one tool call.",
                     actions=[],
                 ),
-                "extra": {"interrupt_type": "FormatError"},
+                "extra": {
+                    "interrupt_type": "FormatError",
+                    "raw_tool_calls": [],
+                },
             }
         )
     actions = []
@@ -59,7 +71,13 @@ def parse_toolcall_actions(tool_calls: list, *, format_error_template: str) -> l
                     "content": Template(format_error_template, undefined=StrictUndefined).render(
                         actions=[], error=error_msg.strip()
                     ),
-                    "extra": {"interrupt_type": "FormatError"},
+                    "extra": {
+                        "interrupt_type": "FormatError",
+                        "raw_tool_call": _serialize_tool_call(tool_call),
+                        "raw_tool_calls": [
+                            _serialize_tool_call(call) for call in tool_calls
+                        ],
+                    },
                 }
             )
         actions.append({"command": args["command"], "tool_call_id": tool_call.id})

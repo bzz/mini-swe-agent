@@ -35,6 +35,17 @@ def _format_error_message(error_text: str) -> dict:
     }
 
 
+def _safe_dump_output_item(item) -> dict:
+    if isinstance(item, dict):
+        return item
+    if hasattr(item, "model_dump"):
+        return item.model_dump()
+    try:
+        return dict(item)
+    except Exception:
+        return {"raw_item": str(item)}
+
+
 def parse_toolcall_actions_response(output: list, *, format_error_template: str) -> list[dict]:
     """Parse tool calls from a Responses API response output.
 
@@ -54,7 +65,9 @@ def parse_toolcall_actions_response(output: list, *, format_error_template: str)
             error="No tool calls found in the response. Every response MUST include at least one tool call.",
             actions=[],
         )
-        raise FormatError(_format_error_message(error_text))
+        msg = _format_error_message(error_text)
+        msg["extra"]["raw_output"] = [_safe_dump_output_item(item) for item in output]
+        raise FormatError(msg)
     actions = []
     for tool_call in tool_calls:
         error_msg = ""
@@ -71,7 +84,11 @@ def parse_toolcall_actions_response(output: list, *, format_error_template: str)
             error_text = Template(format_error_template, undefined=StrictUndefined).render(
                 error=error_msg.strip(), actions=[]
             )
-            raise FormatError(_format_error_message(error_text))
+            msg = _format_error_message(error_text)
+            msg["extra"]["raw_tool_call"] = tool_call
+            msg["extra"]["raw_tool_calls"] = tool_calls
+            msg["extra"]["raw_output"] = [_safe_dump_output_item(item) for item in output]
+            raise FormatError(msg)
         actions.append({"command": args["command"], "tool_call_id": tool_call.get("call_id") or tool_call.get("id")})
     return actions
 
