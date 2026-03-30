@@ -22,6 +22,18 @@ def _mock_litellm_response(tool_calls):
 
 
 class TestLitellmModel:
+    @patch("minisweagent.models.litellm_model._register_tinker_litellm_provider")
+    def test_tinker_model_registers_provider(self, mock_register):
+        LitellmModel(
+            model_name="tinker/my-agent",
+            model_kwargs={"base_model": "Qwen/Qwen3-4B-Instruct-2507"},
+        )
+        mock_register.assert_called_once()
+
+    def test_tinker_model_requires_base_model(self):
+        with pytest.raises(ValueError, match="model_kwargs.base_model"):
+            LitellmModel(model_name="tinker/my-agent")
+
     @patch("minisweagent.models.litellm_model.litellm.completion")
     @patch("minisweagent.models.litellm_model.litellm.cost_calculator.completion_cost")
     def test_query_includes_bash_tool(self, mock_cost, mock_completion):

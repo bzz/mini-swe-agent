@@ -3,6 +3,7 @@ import logging
 import os
 import time
 from collections.abc import Callable
+from functools import cache
 from pathlib import Path
 from typing import Any, Literal
 
@@ -59,6 +60,16 @@ class LitellmModel:
         self.config = config_class(**kwargs)
         if self.config.litellm_model_registry and Path(self.config.litellm_model_registry).is_file():
             litellm.utils.register_model(json.loads(Path(self.config.litellm_model_registry).read_text()))
+        self._register_tinker_provider_if_needed()
+
+    def _register_tinker_provider_if_needed(self) -> None:
+        if not self.config.model_name.startswith("tinker/"):
+            return
+        if "base_model" not in self.config.model_kwargs:
+            raise ValueError(
+                "Tinker LiteLLM integration requires model_kwargs.base_model for models with the 'tinker/' prefix."
+            )
+        _register_tinker_litellm_provider()
 
     def _query(self, messages: list[dict[str, str]], **kwargs):
         try:
@@ -145,3 +156,17 @@ class LitellmModel:
                 },
             }
         }
+
+
+@cache
+def _register_tinker_litellm_provider() -> None:
+    """Register tinker-cookbook's LiteLLM provider once per process."""
+    try:
+        from tinker_cookbook.third_party.litellm import register_litellm_provider
+    except ImportError as e:
+        msg = (
+            "To use models with the 'tinker/' prefix, install optional dependencies with "
+            "`pip install 'mini-swe-agent[tinker]'` (or `uv pip install 'mini-swe-agent[tinker]'`)."
+        )
+        raise ImportError(msg) from e
+    register_litellm_provider()

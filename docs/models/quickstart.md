@@ -194,6 +194,28 @@ Here's a few general examples:
     See [this guide](local_models.md) for more details on local models.
     In particular, you need to configure token costs for local models.
 
+=== "Tinker models via LiteLLM"
+
+    mini-SWE-agent supports Tinker models through LiteLLM using the
+    [`tinker-cookbook` LiteLLM provider integration](https://github.com/thinking-machines-lab/tinker-cookbook/tree/main/tinker_cookbook/third_party/litellm).
+    Install optional dependencies first:
+
+    ```bash
+    uv pip install "mini-swe-agent[tinker]"
+    ```
+
+    Then configure a `tinker/` model name and pass `base_model` in `model_kwargs`:
+
+    ```yaml
+    model:
+      model_name: "tinker/my-agent-label"
+      model_kwargs:
+        base_model: "Qwen/Qwen3-4B-Instruct-2507"
+        temperature: 0.0
+    ```
+
+    You also need `TINKER_API_KEY` in your environment.
+
 Here are more examples of how to configure specific models:
 
 === "Gemini 3 (Openrouter)"
@@ -308,4 +330,3 @@ On top, there's a few more exotic model classes that you can use:
 As with the last two, you can also specify any import path to your own custom model class (even if it is not yet part of the mini-SWE-agent package).
 
 --8<-- "docs/_footer.md"
-
