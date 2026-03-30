@@ -10,6 +10,7 @@ from typing import Any, Literal
 import litellm
 from pydantic import BaseModel
 
+from minisweagent.exceptions import FormatError
 from minisweagent.models import GLOBAL_MODEL_STATS
 from minisweagent.models.utils.actions_toolcall import (
     BASH_TOOL,
@@ -94,10 +95,25 @@ class LitellmModel:
                 response = self._query(self._prepare_messages_for_api(messages), **kwargs)
         cost_output = self._calculate_cost(response)
         GLOBAL_MODEL_STATS.add(cost_output["cost"])
+        raw_response = response.model_dump()
+        actions = []
+        try:
+            actions = self._parse_actions(response)
+        except FormatError as e:
+            # Enrich parsing failures with the full raw model response for debugging.
+            # This mirrors text-based parsing's debug metadata (model_response) while
+            # preserving the existing FormatError content.
+            if e.messages:
+                error_msg = e.messages[0]
+                error_extra = error_msg.setdefault("extra", {})
+                error_extra["raw_response"] = raw_response
+                error_extra["model_name"] = self.config.model_name
+                error_extra["model_class"] = f"{self.__class__.__module__}.{self.__class__.__name__}"
+            raise
         message = response.choices[0].message.model_dump()
         message["extra"] = {
-            "actions": self._parse_actions(response),
-            "response": response.model_dump(),
+            "actions": actions,
+            "response": raw_response,
             **cost_output,
             "timestamp": time.time(),
         }

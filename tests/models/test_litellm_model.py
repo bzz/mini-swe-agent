@@ -71,8 +71,12 @@ class TestLitellmModel:
         mock_cost.return_value = 0.001
 
         model = LitellmModel(model_name="gpt-4")
-        with pytest.raises(FormatError):
+        with pytest.raises(FormatError) as exc_info:
             model.query([{"role": "user", "content": "test"}])
+        error_message = exc_info.value.messages[0]
+        assert "raw_response" in error_message["extra"]
+        assert error_message["extra"]["model_name"] == "gpt-4"
+        assert error_message["extra"]["model_class"] == "minisweagent.models.litellm_model.LitellmModel"
 
     def test_format_observation_messages(self):
         model = LitellmModel(model_name="gpt-4", observation_template="{{ output.output }}")
